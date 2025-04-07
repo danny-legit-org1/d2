@@ -1,0 +1,45 @@
+name: Show PR Info on Push to Main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  show-pr-info:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get PR associated with this commit
+        id: get_pr
+        run: |
+          echo "Fetching PR associated with commit: ${{ github.sha }}"
+          
+          PR_JSON=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/commits/${{ github.sha }}/pulls \
+            --jq '.[0]')
+
+          if [ -z "$PR_JSON" ]; then
+            echo "No PR found for commit ${{ github.sha }}"
+            echo "PR_NUMBER=none" >> $GITHUB_ENV
+            echo "PR_TITLE=none" >> $GITHUB_ENV
+          else
+            echo "Found PR:"
+            echo "$PR_JSON"
+            echo "PR_NUMBER=$(echo "$PR_JSON" | jq -r .number)" >> $GITHUB_ENV
+            echo "PR_TITLE=$(echo "$PR_JSON" | jq -r .title)" >> $GITHUB_ENV
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print PR info
+        run: |
+          echo "PR Number: $PR_NUMBER"
+          echo "PR Title: $PR_TITLE"
